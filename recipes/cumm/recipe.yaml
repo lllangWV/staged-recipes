@@ -1,62 +1,74 @@
 context:
-  version: 0.8.2
+  version: "0.8.2"
 
 package:
   name: cumm
   version: ${{ version }}
 
 source:
-  url: https://github.com/FindDefinition/PCCM/archive/refs/tags/v${{ version }}.tar.gz
-  sha256: d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed
+  url: https://github.com/FindDefinition/cumm/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: d92914ecca500f85d7dc156b648fa5d8ccb33834da377be4e30d5e3236f6a945
 
 build:
   number: 0
-  noarch: python
-  script: pip install .
+  skip:
+    - cuda_compiler_version == "None"
+  script:
+    - if: unix
+      then: bash build.sh
+    - if: win
+      then: cmd /c bld.bat
+  missing_dso_whitelist:
+    - if: win
+      then:
+        - "*/nvcuda.dll"
 
 requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('cuda') }}
+    - ${{ stdlib('c') }}
   host:
-    - python ${{ python_min }}.*
+    - python
     - pip
     - setuptools
     - wheel
-    - pccm
-    - ccimport
+    - pccm >=0.4.15
+    - ccimport >=0.4.4
+    - pybind11 >=2.6.0
+    - cuda-version ${{ cuda_compiler_version }}
+    # CUDA 12+ modular SDK packages (required for all builds since CUDA 11.8 was dropped)
+    - cuda-cudart-dev
+    - libcublas-dev
+    - libcusparse-dev
   run:
-    - python >=${{ python_min }}
-    - fire
-    - pybind11
+    - python
+    - pccm >=0.4.15
     - ccimport
-    - pccm
+    - pybind11 >=2.6.0
+    - fire
     - numpy
     - sympy
-    
+    - ${{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+    # Runtime CUDA libraries
+    - cuda-cudart
+    - libcublas
+    - libcusparse
 
 tests:
   - python:
       imports:
         - cumm
       pip_check: true
-      python_version: ${{ python_min }}.*
 
-  - script:
-      - python test/test_core.py
-    requirements:
-      run:
-        - ninja
-        - ${{ compiler('cxx') }}
-    files:
-      source:
-        - test
-
-about: 
-  homepage: https://github.com/FindDefinition/PCCM
+about:
+  homepage: https://github.com/FindDefinition/cumm
   license: MIT
   license_family: MIT
-  license_file: 
-    - LICENSE
-  repository: https://github.com/FindDefinition/PCCM
-  summary: Python C++ Code Manager (requires a C++ compiler, e.g. cxx-compiler)
+  license_file: LICENSE
+  repository: https://github.com/FindDefinition/cumm
+  summary: CUda Matrix Multiply library - a high-performance CUDA GEMM library using Python metaprogramming
 
 extra:
   recipe-maintainers:

@@ -1,0 +1,63 @@
+context:
+  version: 0.8.2
+
+package:
+  name: cumm
+  version: ${{ version }}
+
+source:
+  url: https://github.com/FindDefinition/PCCM/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed
+
+build:
+  number: 0
+  noarch: python
+  script: pip install .
+
+requirements:
+  host:
+    - python ${{ python_min }}.*
+    - pip
+    - setuptools
+    - wheel
+    - pccm
+    - ccimport
+  run:
+    - python >=${{ python_min }}
+    - fire
+    - pybind11
+    - ccimport
+    - pccm
+    - numpy
+    - sympy
+    
+
+tests:
+  - python:
+      imports:
+        - cumm
+      pip_check: true
+      python_version: ${{ python_min }}.*
+
+  - script:
+      - python test/test_core.py
+    requirements:
+      run:
+        - ninja
+        - ${{ compiler('cxx') }}
+    files:
+      source:
+        - test
+
+about: 
+  homepage: https://github.com/FindDefinition/PCCM
+  license: MIT
+  license_family: MIT
+  license_file: 
+    - LICENSE
+  repository: https://github.com/FindDefinition/PCCM
+  summary: Python C++ Code Manager (requires a C++ compiler, e.g. cxx-compiler)
+
+extra:
+  recipe-maintainers:
+    - lllangWV

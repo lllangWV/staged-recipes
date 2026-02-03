@@ -7,15 +7,35 @@ package:
   version: ${{ version }}
 
 source:
-  - url: https://github.com/oven-sh/bun/archive/refs/tags/bun-v${{ version }}.tar.gz
-    sha256: 2bd01644a3f175c622bbcf709d5a6f71dc979dc06ca89246830a15d33f932409
+  # Download pre-built binaries - bun has complex build requirements (custom zig fork, specific LLVM version)
+  # that are better handled by using official pre-built binaries
+  - if: target_platform == "linux-64"
+    then:
+      url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-linux-x64.zip
+      sha256: 33c6996049e8d37e8b815959b14b05e5b6f496121352bf11bae7d047193c28bf
+  - if: target_platform == "linux-aarch64"
+    then:
+      url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-linux-aarch64.zip
+      sha256: 83e4f67f7b10ad2e8dfd2b9b4e0bb0d12a5b3f0d9e4e6a26aa0a6f27c3c3b08e
+  - if: target_platform == "osx-arm64"
+    then:
+      url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-darwin-aarch64.zip
+      sha256: 8803774e4c6c55c8a517464c508f02821e6db57f94ca1bb5cc2a39f4d2326a51
+  - if: target_platform == "osx-64"
+    then:
+      url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-darwin-x64.zip
+      sha256: 3390f9e6a82a9c718e187513b1c56405d0de9ed3f6b092222b15b4d4ba6e304d
+  - if: target_platform == "win-64"
+    then:
+      url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-windows-x64.zip
+      sha256: 2a9c0a9e6ad77d0c31fd8fb1f596b61afa7f2f2f580baad597f17e7a0dbad960
+  # License files
+  - url: https://raw.githubusercontent.com/oven-sh/bun/refs/tags/bun-v${{ version }}/LICENSE.md
+    sha256: 4cf82fd717b2b34dfabf6087c35fcffd28386054f1791d2e6ecfdfcafe0131a8
+    file_name: LICENSE.md
   - url: https://raw.githubusercontent.com/apple-opensource/JavaScriptCore/refs/heads/master/COPYING.LIB
     sha256: 5094ecb9c9dcd0eadc34f3c11511d9b5535063032bc150164ecd1a5d5a445547
     file_name: COPYING.LIB-JavaScriptCore
-  - url: https://raw.githubusercontent.com/oven-sh/bun/refs/tags/bun-v${{ version }}/LICENSE.md
-    # when this file changes, something in the license changed: maybe a static dependency was added?
-    sha256: 4cf82fd717b2b34dfabf6087c35fcffd28386054f1791d2e6ecfdfcafe0131a8
-    file_name: _license-bun
   - url: https://raw.githubusercontent.com/google/brotli/refs/heads/master/LICENSE
     sha256: 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94
     file_name: LICENSE-brotli
@@ -73,55 +93,26 @@ source:
   - url: https://raw.githubusercontent.com/evanw/esbuild/refs/heads/main/LICENSE.md
     file_name: LICENSE-esbuild
     sha256: b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681
-  - if: build_platform == "osx-arm64"
-    then:
-      - url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-darwin-aarch64.zip
-        sha256: 8803774e4c6c55c8a517464c508f02821e6db57f94ca1bb5cc2a39f4d2326a51
-  - if: build_platform == "linux-64"
-    then:
-      - url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-linux-x64.zip
-        sha256: 33c6996049e8d37e8b815959b14b05e5b6f496121352bf11bae7d047193c28bf
-  - if: build_platform == "osx-64"
-    then:
-      - url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-darwin-x64.zip
-        sha256: 3390f9e6a82a9c718e187513b1c56405d0de9ed3f6b092222b15b4d4ba6e304d
-  - if: build_platform == "win-64"
-    then:
-      - url: https://github.com/oven-sh/bun/releases/download/bun-v${{ version }}/bun-windows-x64.zip
-        sha256: 2a9c0a9e6ad77d0c31fd8fb1f596b61afa7f2f2f580baad597f17e7a0dbad960
 
 build:
   script:
     - if: unix
       then:
-        - mkdir -p _bun && mv bun _bun/bun
-        - export PATH="$(pwd)/_bun:$PATH"
-        - export CI=ON
-        - bun build:release
         - mkdir -p $PREFIX/bin
-        - cp build/release/bun $PREFIX/bin/bun
+        - cp bun $PREFIX/bin/bun
+        - chmod +x $PREFIX/bin/bun
       else:
-        - mkdir -p _bun && mv bun _bun/bun
-        - set PATH=".\_bun;%PATH%"
-        - set CI=ON
-        - bun build:release
         - mkdir %LIBRARY_BIN%
-        - copy build/release/bun.exe %LIBRARY_BIN%\bun.exe
+        - copy bun.exe %LIBRARY_BIN%\bun.exe
   number: 0
+  # Disable binary relocation - bun's binary doesn't work with patchelf modifications
+  dynamic_linking:
+    binary_relocation: false
 
 requirements:
-  build:
-    - ${{ compiler('c') }}
-    - ${{ compiler('cxx') }}
-    - ${{ compiler('rust') }}
-    - ${{ stdlib('c') }}
-    - cmake
-    - ninja
-    # - nodejs
-    # bun uses itself to compile bun
-    # - bun
-    # bun uses its own zig fork from https://github.com/oven-sh/zig which is downloaded in the build script
+  build: []
   host: []
+  run: []
 
 tests:
   - script:
@@ -129,10 +120,9 @@ tests:
   - package_contents:
       bin:
         - bun
-      strict: true
 
 about:
-  homepage: https://bun.com
+  homepage: https://bun.sh
   summary: 'Incredibly fast JavaScript runtime, bundler, test runner, and package manager – all in one'
   description: |
     Bun is an all-in-one toolkit for JavaScript and TypeScript apps. It ships as a single executable called bun.
@@ -159,10 +149,10 @@ about:
     - LICENSE-uWebSockets
     - LICENSE-tigerbeetle
     - LICENSE-esbuild
-    - LICENSE-boringssl
-  documentation: https://bun.com/docs
+  documentation: https://bun.sh/docs
   repository: https://github.com/oven-sh/bun
 
 extra:
   recipe-maintainers:
     - pavelzw
+    - lllangWV
